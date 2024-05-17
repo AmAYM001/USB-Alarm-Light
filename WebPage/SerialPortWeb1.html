@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Web Serial Example</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+
+</head>
+
+<body>
+    <!-- <button id="connectButton">Connect</button> -->
+    <!-- <button id="YellowButton">Yellow</button> -->
+
+    <div class="container-fluid">
+        <div class="row-fluid">
+            <div>
+                <h1>
+                    安亚麦 USB三色灯WEB调试
+                </h1>
+            </div>
+
+            <div class="span6" style="margin-bottom: 10px;margin-top: 20px;">
+                <button id="connectButton" class="btn btn-outline-secondary" type="button">Connect</button>
+                <div class="btn-group" role="group" aria-label="Basic example">
+                    <button id="YellowButton" class="btn btn-block btn-warning" type="button">Yellow</button>
+                    <button id="BlueButton" class="btn btn-block btn-success" type="button">Blue</button>
+                    <button id="RedButton" class="btn btn-block btn-danger" type="button">Red</button>
+                    <button id="OffButton" class="btn btn-block btn-dark" type="button">All OFF</button>
+                </div>
+            </div>
+            <div class="span6">
+                <p>
+                    <textarea id="outputData" rows="4" cols="50" placeholder="接收到的数据" readonly></textarea>
+                </p>
+
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <script>
+        let port;
+        let keepReading = true;
+        const connectButton = document.getElementById('connectButton');
+        const YellowButton = document.getElementById('YellowButton');
+        const BlueButton = document.getElementById('BlueButton'); 
+        const RedButton = document.getElementById('RedButton');
+        const OffButton = document.getElementById('OffButton');
+        // 请求浏览器授权访问串口
+        async function connectSerial() {
+            if ('serial' in navigator) {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 }); // 设置波特率
+                console.log('Serial port connected');
+                Resposeloop();
+            } else {
+                const outputDataElement = document.getElementById('outputData');
+                const decodedData = new TextDecoder().decode("不支持的浏览器");
+                outputDataElement.value = decodedData;
+            }
+        }
+
+        // 发送数据
+        async function sendData(data) {
+            if (!port) {
+                console.error('Serial port not connected');
+                return;
+            }
+            const writer = port.writable.getWriter();
+           // const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]); // 要发送的指令
+            await writer.write(data);
+            writer.releaseLock();
+            console.log(data);
+        }
+
+
+
+        //接收
+        async function Resposeloop() {
+            const reader = port.readable.getReader();
+            try {
+                while (keepReading) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        reader.releaseLock();
+                        break;
+                    }
+                    if (value) {
+                        /*** TODO: deal with the data value ***/
+                        dealWithData(value);
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+            } finally {
+                console.log(port.readable, keepReading);
+            }
+        }
+        //关闭
+        async function ClosePort() {
+            await port.close();
+            console.log("port closed");
+
+        }
+        /*** function dealWithData below ***/
+        function dealWithData(data) {
+            const outputDataElement = document.getElementById('outputData');
+            // const decodedData = new TextDecoder().decode(data);             
+            const hexData = Array.from(data, byte => byte.toString(16).padStart(2, '0')).join(' ');
+            outputDataElement.value = hexData;
+        }
+
+        connectButton.addEventListener('click', connectSerial);
+        YellowButton.addEventListener('click', ()=>{
+            console.log('黄');
+            const data = new Uint8Array([0xA0, 0x01, 0x01, 0xA2]); // 黄
+            sendData(data);
+        });
+        BlueButton.addEventListener('click', ()=>{
+            console.log('绿');
+            const data = new Uint8Array([0xA0, 0x02, 0x02, 0xA4]); // 绿
+            sendData(data);
+        });
+        RedButton.addEventListener('click', ()=>{
+            console.log('红');
+            const data = new Uint8Array([0xA0, 0x03, 0x01, 0xA4]); // 红
+            sendData(data);
+        });
+        OffButton.addEventListener('click', ()=>{
+            console.log('全灭');
+            const data = new Uint8Array([0xA0, 0x00, 0x00, 0xA0]); // 全灭
+            sendData(data);
+        });
+
+      
+    </script>   
+</body>
+
+</html>
